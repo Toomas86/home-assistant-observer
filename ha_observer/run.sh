@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# shellcheck disable=SC1091 -- bashio is supplied by the Home Assistant base image.
+# bashio is supplied by the Home Assistant base image.
+# shellcheck disable=SC1091
 source /usr/lib/bashio/bashio.sh
 
 tunnel_id="$(bashio::config 'tunnel_id')"
