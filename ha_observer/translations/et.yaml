@@ -1,0 +1,16 @@
+configuration:
+  tunnel_id:
+    name: OpenAI tunneli ID
+    description: OpenAI Platformi tunneliseadetest saadud tunnel_... identifikaator.
+  openai_runtime_api_key:
+    name: OpenAI käitusvõti
+    description: Ainult tunneli käitamiseks mõeldud võti Tunnels Read ja Use õigustega. Ära kasuta administraatorivõtit.
+  retention_days:
+    name: Vigade säilitamine päevades
+    description: Kui kaua säilitatakse kohalikus andmebaasis puhastatud HA hoiatusi ja vigu.
+  allow_sensitive_entities:
+    name: Luba tundlikud olemid
+    description: Lubab lugeda kaamerate, isikute, seadmejälgijate, piltide ja geograafiliste olemite metaandmeid. Soovitus on välja lülitatud.
+  log_level:
+    name: Rakenduse logitase
+    description: Vaatleja ja tunneli logide detailsus.
