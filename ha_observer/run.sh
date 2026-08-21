@@ -5,16 +5,20 @@ set -Eeuo pipefail
 # shellcheck disable=SC1091
 source /usr/lib/bashio/bashio.sh
 
-# Read app options from the mounted configuration file. Without CONFIG_PATH,
-# Bashio falls back to the Supervisor API, which is not granted to this
-# deliberately least-privileged app.
-export CONFIG_PATH="/data/options.json"
+# Read app options from the file mounted by Supervisor. Recent Bashio releases
+# fetch bashio::config values from the Supervisor API even when CONFIG_PATH is
+# set, so use jq directly to preserve this app's least-privilege permissions.
+options_file="/data/options.json"
+if [[ ! -r "${options_file}" ]]; then
+    bashio::log.fatal "The Home Assistant app options file is not readable."
+    exit 1
+fi
 
-tunnel_id="$(bashio::config 'tunnel_id')"
-runtime_key="$(bashio::config 'openai_runtime_api_key')"
-retention_days="$(bashio::config 'retention_days')"
-allow_sensitive="$(bashio::config 'allow_sensitive_entities')"
-log_level="$(bashio::config 'log_level')"
+tunnel_id="$(jq --raw-output '.tunnel_id // empty' "${options_file}")"
+runtime_key="$(jq --raw-output '.openai_runtime_api_key // empty' "${options_file}")"
+retention_days="$(jq --raw-output '.retention_days // 30' "${options_file}")"
+allow_sensitive="$(jq --raw-output '.allow_sensitive_entities // false' "${options_file}")"
+log_level="$(jq --raw-output '.log_level // "info"' "${options_file}")"
 
 if [[ -z "${tunnel_id}" || "${tunnel_id}" == "null" ]]; then
     bashio::log.fatal "Configure tunnel_id before starting the app."
