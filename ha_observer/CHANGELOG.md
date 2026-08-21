@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Read app options with `jq` from `/data/options.json` because current Bashio
+  versions fetch `bashio::config` through the Supervisor API regardless of the
+  `CONFIG_PATH` environment variable.
+
 ## 0.1.1
 
 - Read app options directly from `/data/options.json` so startup works without
