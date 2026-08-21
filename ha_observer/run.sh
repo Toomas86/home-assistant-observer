@@ -1,4 +1,5 @@
 #!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
 set -Eeuo pipefail
 
 # Read app options from the file mounted by Supervisor. Recent Bashio releases
