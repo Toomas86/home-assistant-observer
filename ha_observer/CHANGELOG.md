@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Start through Home Assistant's `with-contenv` Bashio wrapper so the scoped
+  `SUPERVISOR_TOKEN` reaches the observer process.
+
 ## 0.1.2
 
 - Read app options with `jq` from `/data/options.json` because current Bashio
