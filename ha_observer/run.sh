@@ -1,9 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
 set -Eeuo pipefail
-
-# bashio is supplied by the Home Assistant base image.
-# shellcheck disable=SC1091
-source /usr/lib/bashio/bashio.sh
 
 # Read app options from the file mounted by Supervisor. Recent Bashio releases
 # fetch bashio::config values from the Supervisor API even when CONFIG_PATH is

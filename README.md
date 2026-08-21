@@ -41,4 +41,4 @@ shellcheck ha_observer/run.sh
 
 ## Status
 
-Experimental `0.1.2`. Start with `allow_sensitive_entities: false` and a narrowly scoped OpenAI runtime API key.
+Experimental `0.1.3`. Start with `allow_sensitive_entities: false` and a narrowly scoped OpenAI runtime API key.

@@ -8,6 +8,10 @@ RUN_SCRIPT = PROJECT / "ha_observer" / "run.sh"
 
 
 class AppStartupTests(unittest.TestCase):
+    def test_s6_environment_is_imported(self) -> None:
+        source = RUN_SCRIPT.read_text(encoding="utf-8")
+        self.assertTrue(source.startswith("#!/usr/bin/with-contenv bashio\n"))
+
     def test_options_are_read_from_mounted_file(self) -> None:
         source = RUN_SCRIPT.read_text(encoding="utf-8")
         commands = "\n".join(
