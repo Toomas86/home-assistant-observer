@@ -1,0 +1,16 @@
+configuration:
+  tunnel_id:
+    name: OpenAI tunnel ID
+    description: The tunnel_... identifier from OpenAI Platform tunnel settings.
+  openai_runtime_api_key:
+    name: OpenAI runtime API key
+    description: Runtime-only key with Tunnels Read and Use permissions. Do not use an admin key.
+  retention_days:
+    name: Error retention (days)
+    description: How long sanitized Home Assistant warning and error events remain in the local database.
+  allow_sensitive_entities:
+    name: Allow sensitive entities
+    description: Allow camera, person, device tracker, image, and geolocation entity metadata to be read. Off is recommended.
+  log_level:
+    name: App log level
+    description: Verbosity for the observer and tunnel-client logs.
