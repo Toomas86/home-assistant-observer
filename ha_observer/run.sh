@@ -5,6 +5,11 @@ set -Eeuo pipefail
 # shellcheck disable=SC1091
 source /usr/lib/bashio/bashio.sh
 
+# Read app options from the mounted configuration file. Without CONFIG_PATH,
+# Bashio falls back to the Supervisor API, which is not granted to this
+# deliberately least-privileged app.
+export CONFIG_PATH="/data/options.json"
+
 tunnel_id="$(bashio::config 'tunnel_id')"
 runtime_key="$(bashio::config 'openai_runtime_api_key')"
 retention_days="$(bashio::config 'retention_days')"
