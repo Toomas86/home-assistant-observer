@@ -1,3 +1,3 @@
-"""Read-only Home Assistant diagnostics exposed through MCP."""
+"""Safe Home Assistant diagnostics and YAML management exposed through MCP."""
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
