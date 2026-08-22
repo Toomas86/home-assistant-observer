@@ -11,6 +11,9 @@ configuration:
   allow_sensitive_entities:
     name: Allow sensitive entities
     description: Allow camera, person, device tracker, image, and geolocation entity metadata to be read. Off is recommended.
+  config_management_enabled:
+    name: Enable YAML configuration management
+    description: Allow constrained YAML reads, staging, Home Assistant validation, confirmed apply, and rollback. Off is the safe default.
   log_level:
     name: App log level
     description: Verbosity for the observer and tunnel-client logs.

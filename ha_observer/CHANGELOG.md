@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- Add opt-in YAML listing and redacted, bounded file reads.
+- Add exact-patch, append, and new-file staging with SHA-256 stale-write protection.
+- Validate YAML syntax locally and run Home Assistant's own full configuration check while
+  atomically restoring the original file afterward.
+- Require a checked change and approval code for apply; mark apply and rollback tools as
+  destructive MCP operations so the client can request confirmation.
+- Add atomic writes, protected pre-change backups, conflict-aware rollback, and startup recovery
+  for interrupted checks, applies, or rollbacks.
+- Continue to block service calls, entity-state changes, reloads, restarts, secrets, system paths,
+  arbitrary shell commands, and non-YAML writes.
+
 ## 0.1.3
 
 - Start through Home Assistant's `with-contenv` Bashio wrapper so the scoped

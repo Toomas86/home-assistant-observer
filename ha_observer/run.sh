@@ -15,6 +15,7 @@ tunnel_id="$(jq --raw-output '.tunnel_id // empty' "${options_file}")"
 runtime_key="$(jq --raw-output '.openai_runtime_api_key // empty' "${options_file}")"
 retention_days="$(jq --raw-output '.retention_days // 30' "${options_file}")"
 allow_sensitive="$(jq --raw-output '.allow_sensitive_entities // false' "${options_file}")"
+config_management="$(jq --raw-output '.config_management_enabled // false' "${options_file}")"
 log_level="$(jq --raw-output '.log_level // "info"' "${options_file}")"
 
 if [[ -z "${tunnel_id}" || "${tunnel_id}" == "null" ]]; then
@@ -35,6 +36,9 @@ export OBSERVER_DB_PATH="/data/observer.db"
 export OBSERVER_RETENTION_DAYS="${retention_days}"
 export OBSERVER_ALLOW_SENSITIVE_ENTITIES="${allow_sensitive}"
 export OBSERVER_LOG_LEVEL="${log_level}"
+export CONFIG_MANAGEMENT_ENABLED="${config_management}"
+export HA_CONFIG_ROOT="/homeassistant"
+export CONFIG_MANAGER_DATA_PATH="/data/config_manager"
 
 export CONTROL_PLANE_TUNNEL_ID="${tunnel_id}"
 export MCP_SERVER_URL="http://127.0.0.1:3000/mcp"
@@ -42,7 +46,7 @@ export HEALTH_LISTEN_ADDR="127.0.0.1:8080"
 export LOG_LEVEL="${log_level}"
 export LOG_FORMAT="json"
 
-bashio::log.info "Starting the read-only Home Assistant MCP observer."
+bashio::log.info "Starting the Home Assistant MCP observer and opt-in YAML manager."
 /opt/venv/bin/uvicorn observer.server:app \
     --host 127.0.0.1 \
     --port 3000 \

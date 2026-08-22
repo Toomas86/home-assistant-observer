@@ -1,4 +1,4 @@
-"""Strictly read-only Home Assistant REST and WebSocket client."""
+"""Home Assistant client with read APIs plus one allowlisted config check."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class HomeAssistantAPIError(RuntimeError):
 
 
 class HomeAssistantClient:
-    """Client limited to GET requests and known read-only WebSocket commands."""
+    """Client limited to GET, one config-check POST, and read-only WebSocket commands."""
 
     READ_ONLY_WS_COMMANDS = {
         "repairs/list_issues",
@@ -88,19 +88,46 @@ class HomeAssistantClient:
                 )
             return redact_text(body, max_length=200_000)
 
+    async def check_config(self) -> dict[str, Any]:
+        """Run Home Assistant's admin-only configuration check."""
+        path = "/config/core/check_config"
+        session = self._require_session()
+        async with session.post(self.rest_url + path) as response:
+            body = await response.text()
+            if response.status >= 400:
+                raise HomeAssistantAPIError(
+                    f"Home Assistant configuration check failed with HTTP {response.status}: "
+                    + redact_text(body[:1_000])
+                )
+            try:
+                result = await response.json(content_type=None)
+            except (ValueError, aiohttp.ContentTypeError) as exc:
+                raise HomeAssistantAPIError(
+                    "Home Assistant configuration check returned invalid JSON"
+                ) from exc
+            if not isinstance(result, dict):
+                raise HomeAssistantAPIError(
+                    "Home Assistant configuration check returned an invalid response"
+                )
+            return redact(result)
+
     async def _authenticate_ws(self, ws: aiohttp.ClientWebSocketResponse) -> None:
         hello = await ws.receive_json(timeout=self.timeout_seconds)
         if hello.get("type") == "auth_required":
             await ws.send_json({"type": "auth", "access_token": self.token})
             auth = await ws.receive_json(timeout=self.timeout_seconds)
             if auth.get("type") != "auth_ok":
-                raise HomeAssistantAPIError("Home Assistant WebSocket authentication failed")
+                raise HomeAssistantAPIError(
+                    "Home Assistant WebSocket authentication failed"
+                )
         elif hello.get("type") != "auth_ok":
             raise HomeAssistantAPIError("Unexpected Home Assistant WebSocket greeting")
 
     async def ws_command(self, command: str, **payload: Any) -> Any:
         if command not in self.READ_ONLY_WS_COMMANDS or command == "subscribe_events":
-            raise ValueError(f"WebSocket command is not on the read-only allowlist: {command}")
+            raise ValueError(
+                f"WebSocket command is not on the read-only allowlist: {command}"
+            )
         session = self._require_session()
         async with session.ws_connect(self.websocket_url, heartbeat=30) as ws:
             await self._authenticate_ws(ws)
@@ -112,7 +139,9 @@ class HomeAssistantClient:
                     continue
                 if message.get("type") != "result" or not message.get("success"):
                     error = redact(message.get("error", {}))
-                    raise HomeAssistantAPIError(f"Home Assistant {command} failed: {error}")
+                    raise HomeAssistantAPIError(
+                        f"Home Assistant {command} failed: {error}"
+                    )
                 return redact(message.get("result"))
 
     async def subscribe_system_log(self, on_entry: Any, status: Any) -> None:
@@ -134,13 +163,17 @@ class HomeAssistantClient:
                     )
                     result = await ws.receive_json(timeout=self.timeout_seconds)
                     if not result.get("success"):
-                        raise HomeAssistantAPIError("system_log_event subscription was rejected")
+                        raise HomeAssistantAPIError(
+                            "system_log_event subscription was rejected"
+                        )
                     status.connected = True
                     status.last_error = None
                     backoff = 1
                     async for message in ws:
                         if message.type == aiohttp.WSMsgType.ERROR:
-                            raise HomeAssistantAPIError("Home Assistant WebSocket stream failed")
+                            raise HomeAssistantAPIError(
+                                "Home Assistant WebSocket stream failed"
+                            )
                         if message.type != aiohttp.WSMsgType.TEXT:
                             continue
                         data = message.json()
@@ -159,7 +192,9 @@ class HomeAssistantClient:
             except Exception as exc:  # noqa: BLE001 - reconnect boundary
                 status.connected = False
                 status.last_error = redact_text(str(exc), max_length=500)
-                LOGGER.warning("System-log collector reconnecting: %s", status.last_error)
+                LOGGER.warning(
+                    "System-log collector reconnecting: %s", status.last_error
+                )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
 

@@ -1,4 +1,4 @@
-"""Read-only MCP tools for Home Assistant diagnostics."""
+"""Privacy-redacted diagnostics and opt-in, transactional YAML tools."""
 
 from __future__ import annotations
 
@@ -13,7 +13,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from . import __version__
-from .policy import filter_entity_ids, is_sensitive_entity, validate_entity_id, validate_trace_item_id
+from .policy import (
+    filter_entity_ids,
+    is_sensitive_entity,
+    validate_entity_id,
+    validate_trace_item_id,
+)
 from .redaction import redact, redact_text
 from .runtime import ObserverRuntime
 
@@ -32,11 +37,14 @@ async def lifespan(_: MCPServer):
 mcp = MCPServer(
     "Home Assistant Observer",
     title="Home Assistant Observer",
-    description="Read-only, privacy-redacted Home Assistant diagnostics.",
+    description="Privacy-redacted diagnostics plus opt-in, transactional YAML management.",
     instructions=(
-        "Use these tools only to inspect Home Assistant. The server cannot call services, "
-        "change entity states, edit configuration, or acknowledge repairs. Prefer targeted "
-        "entity and automation queries before broad searches."
+        "Prefer targeted entity and automation queries before broad searches. YAML access is "
+        "disabled unless the Home Assistant owner explicitly enables it. Never place credentials "
+        "in YAML tool arguments; use !secret references. Always read the current digest, stage a "
+        "small change, inspect its diff, run Home Assistant's configuration check, and obtain "
+        "explicit user confirmation before applying. This server cannot call services, change "
+        "entity states, reload integrations, restart Home Assistant, or acknowledge repairs."
     ),
     version=__version__,
     lifespan=lifespan,
@@ -50,6 +58,20 @@ READ_ONLY = ToolAnnotations(
     open_world_hint=False,
 )
 
+STAGING_WRITE = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=False,
+    open_world_hint=False,
+)
+
+CONFIG_APPLY = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=False,
+)
+
 
 def _bounded(value: int, minimum: int, maximum: int, name: str) -> int:
     if not minimum <= value <= maximum:
@@ -58,7 +80,9 @@ def _bounded(value: int, minimum: int, maximum: int, name: str) -> int:
 
 
 def _concise_state(item: dict[str, Any]) -> dict[str, Any]:
-    attributes = item.get("attributes") if isinstance(item.get("attributes"), dict) else {}
+    attributes = (
+        item.get("attributes") if isinstance(item.get("attributes"), dict) else {}
+    )
     return {
         "entity_id": item.get("entity_id"),
         "state": item.get("state"),
@@ -196,13 +220,19 @@ async def ha_find_entities(
             blocked += 1
             continue
         item_domain = entity_id.split(".", 1)[0]
-        attributes = item.get("attributes") if isinstance(item.get("attributes"), dict) else {}
+        attributes = (
+            item.get("attributes") if isinstance(item.get("attributes"), dict) else {}
+        )
         friendly_name = str(attributes.get("friendly_name", ""))
         if domain_value and item_domain != domain_value:
             continue
         if state is not None and str(item.get("state")) != state:
             continue
-        if query_folded and query_folded not in entity_id.casefold() and query_folded not in friendly_name.casefold():
+        if (
+            query_folded
+            and query_folded not in entity_id.casefold()
+            and query_folded not in friendly_name.casefold()
+        ):
             continue
         matches.append(_concise_state(item))
         if len(matches) >= limit:
@@ -230,10 +260,19 @@ async def ha_get_entities(entity_ids: list[str]) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
     for entity_id, result in zip(allowed, results, strict=True):
         if isinstance(result, BaseException):
-            errors.append({"entity_id": entity_id, "error": redact_text(str(result), max_length=500)})
+            errors.append(
+                {
+                    "entity_id": entity_id,
+                    "error": redact_text(str(result), max_length=500),
+                }
+            )
         else:
             entities.append(redact(result))
-    return {"entities": entities, "blocked_sensitive_entities": blocked, "errors": errors}
+    return {
+        "entities": entities,
+        "blocked_sensitive_entities": blocked,
+        "errors": errors,
+    }
 
 
 @mcp.tool(title="Get Home Assistant entity history", annotations=READ_ONLY)
@@ -258,11 +297,17 @@ async def ha_get_history(
         if allowed
         else []
     )
-    return {"history": redact(history), "blocked_sensitive_entities": blocked, "hours": hours}
+    return {
+        "history": redact(history),
+        "blocked_sensitive_entities": blocked,
+        "hours": hours,
+    }
 
 
 @mcp.tool(title="Get Home Assistant logbook", annotations=READ_ONLY)
-async def ha_get_logbook(entity_id: str, hours: int = 24, limit: int = 200) -> dict[str, Any]:
+async def ha_get_logbook(
+    entity_id: str, hours: int = 24, limit: int = 200
+) -> dict[str, Any]:
     """Get recent logbook events for one exact entity."""
     hours = _bounded(hours, 1, 168, "hours")
     limit = _bounded(limit, 1, 500, "limit")
@@ -328,6 +373,100 @@ async def ha_get_repairs(include_ignored: bool = False) -> dict[str, Any]:
     if not include_ignored:
         issues = [issue for issue in issues if not issue.get("ignored")]
     return {"issues": redact(issues), "returned": len(issues)}
+
+
+@mcp.tool(title="List allowed Home Assistant YAML files", annotations=READ_ONLY)
+async def ha_list_config_yaml(
+    directory: str = "",
+    recursive: bool = True,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """List allowed YAML paths and digests; secrets and system folders are always excluded."""
+    return await asyncio.to_thread(
+        runtime.config_manager.list_yaml,
+        directory,
+        recursive=recursive,
+        limit=limit,
+    )
+
+
+@mcp.tool(title="Read Home Assistant YAML", annotations=READ_ONLY)
+async def ha_read_config_yaml(
+    path: str,
+    start_line: int = 1,
+    end_line: int = 300,
+) -> dict[str, Any]:
+    """Read a bounded, redacted YAML excerpt plus the raw file digest used for safe staging."""
+    return await asyncio.to_thread(
+        runtime.config_manager.read_yaml,
+        path,
+        start_line=start_line,
+        end_line=end_line,
+    )
+
+
+@mcp.tool(title="Stage an exact YAML patch", annotations=STAGING_WRITE)
+async def ha_stage_yaml_patch(
+    path: str,
+    expected_sha256: str,
+    old_text: str,
+    new_text: str,
+) -> dict[str, Any]:
+    """Stage one exact text replacement without changing the live YAML file."""
+    return await asyncio.to_thread(
+        runtime.config_manager.stage_patch,
+        path,
+        expected_sha256=expected_sha256,
+        old_text=old_text,
+        new_text=new_text,
+    )
+
+
+@mcp.tool(title="Stage a YAML append", annotations=STAGING_WRITE)
+async def ha_stage_yaml_append(
+    path: str,
+    expected_sha256: str,
+    content: str,
+) -> dict[str, Any]:
+    """Stage content at the end of one existing YAML file without changing the live file."""
+    return await asyncio.to_thread(
+        runtime.config_manager.stage_append,
+        path,
+        expected_sha256=expected_sha256,
+        content=content,
+    )
+
+
+@mcp.tool(title="Stage a new YAML file", annotations=STAGING_WRITE)
+async def ha_stage_new_yaml_file(path: str, content: str) -> dict[str, Any]:
+    """Stage creation of a new YAML file in an approved configuration folder."""
+    return await asyncio.to_thread(
+        runtime.config_manager.stage_create, path, content=content
+    )
+
+
+@mcp.tool(title="Preview a staged YAML change", annotations=READ_ONLY)
+async def ha_preview_staged_yaml(change_id: str) -> dict[str, Any]:
+    """Preview the redacted diff and current status of one staged YAML change."""
+    return await asyncio.to_thread(runtime.config_manager.preview, change_id)
+
+
+@mcp.tool(title="Check staged YAML with Home Assistant", annotations=STAGING_WRITE)
+async def ha_check_staged_yaml(change_id: str) -> dict[str, Any]:
+    """Temporarily swap in a candidate, run HA's config check, and always restore the original."""
+    return await runtime.config_manager.check(change_id)
+
+
+@mcp.tool(title="Apply a checked YAML change", annotations=CONFIG_APPLY)
+async def ha_apply_staged_yaml(change_id: str, approval_code: str) -> dict[str, Any]:
+    """Apply one checked change after explicit confirmation; does not reload or restart HA."""
+    return await runtime.config_manager.apply(change_id, approval_code=approval_code)
+
+
+@mcp.tool(title="Roll back an applied YAML change", annotations=CONFIG_APPLY)
+async def ha_rollback_yaml_change(change_id: str, rollback_code: str) -> dict[str, Any]:
+    """Restore the protected pre-change backup if the applied file has not changed since."""
+    return await runtime.config_manager.rollback(change_id, rollback_code=rollback_code)
 
 
 app = mcp.streamable_http_app(

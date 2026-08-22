@@ -11,6 +11,9 @@ configuration:
   allow_sensitive_entities:
     name: Luba tundlikud olemid
     description: Lubab lugeda kaamerate, isikute, seadmejälgijate, piltide ja geograafiliste olemite metaandmeid. Soovitus on välja lülitatud.
+  config_management_enabled:
+    name: Luba YAML-konfiguratsiooni haldus
+    description: Lubab piiratud YAML-i lugemise, muudatuste ettevalmistuse, HA kontrolli, kinnitatud rakendamise ja tagasipööramise. Turvaline vaikeväärtus on välja lülitatud.
   log_level:
     name: Rakenduse logitase
     description: Vaatleja ja tunneli logide detailsus.
